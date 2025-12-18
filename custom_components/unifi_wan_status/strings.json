@@ -1,0 +1,7 @@
+{
+  "unifi_wan_status": {
+    "name": "UniFi WAN Status",
+    "documentation": "https://github.com/rossiluis22/unifi-wan-status",
+    "issue_tracker": "https://github.com/rossiluis22/unifi-wan-status/issues"
+  }
+}

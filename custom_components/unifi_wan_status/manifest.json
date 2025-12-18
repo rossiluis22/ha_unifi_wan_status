@@ -1,0 +1,16 @@
+{
+  "domain": "unifi_wan_status",
+  "name": "UniFi WAN Status",
+  "codeowners": [
+    "@rossiluis22"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/rossiluis22/unifi-wan-status",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/rossiluis22/unifi-wan-status/issues",
+  "requirements": [
+    "requests>=2.31.0"
+  ],
+  "version": "1.0.0"
+}
