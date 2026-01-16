@@ -111,6 +111,19 @@ class UniFiWANCoordinator(DataUpdateCoordinator):
             
             devices = resp.json().get("data", [])
             
+            # Fetch health data for ISP info
+            health_data = await self.hass.async_add_executor_job(self._fetch_health)
+            
+            # Extract ISP info from health data
+            health_isp_name = "N/A"
+            health_isp_org = "N/A"
+            
+            for subsystem in health_data:
+                if subsystem.get("subsystem") == "wan":
+                    health_isp_name = subsystem.get("isp_name", "N/A")
+                    health_isp_org = subsystem.get("isp_organization", "N/A")
+                    break
+
             # Process devices and extract WAN information
             wan_data = {}
             
@@ -121,17 +134,29 @@ class UniFiWANCoordinator(DataUpdateCoordinator):
                 if wan_keys:
                     device_name = device.get("name", device.get("model", "Unknown"))
                     device_model = device.get("model", "Unknown")
+                    device_mac = device.get("mac", "unknown")
                     
                     for wan_key in wan_keys:
                         wan_info = device[wan_key]
                         
                         # Create unique identifier for this WAN
-                        wan_id = f"{device.get('mac', 'unknown')}_{wan_key}"
+                        wan_id = f"{device_mac}_{wan_key}"
                         
-                        # Extract ISP information
-                        isp_name = wan_info.get("isp_name", "N/A")
-                        isp_org = wan_info.get("isp_organization", "N/A")
+                        # Extract ISP information from device or fallback to health data
+                        isp_name = wan_info.get("isp_name") or wan_info.get("ispName") or wan_info.get("provider")
+                        isp_org = wan_info.get("isp_organization") or wan_info.get("ispOrganization") or wan_info.get("organization")
                         
+                        # If not found in device, use health data (mostly for primary WAN)
+                        # We assume the health data corresponds to the active WAN or the first one
+                        if not isp_name and wan_info.get("up", False):
+                             isp_name = health_isp_name
+                             isp_org = health_isp_org
+                        
+                        if not isp_name:
+                             isp_name = "N/A"
+                        if not isp_org:
+                             isp_org = "N/A"
+
                         # Calculate uptime in hours if available
                         uptime_seconds = wan_info.get("uptime", 0)
                         uptime_hours = round(uptime_seconds / 3600, 1) if uptime_seconds else 0
@@ -171,6 +196,27 @@ class UniFiWANCoordinator(DataUpdateCoordinator):
             
         except requests.exceptions.RequestException as err:
             raise UpdateFailed(f"Error fetching devices: {err}")
+
+    def _fetch_health(self) -> list[dict[str, Any]]:
+        """Fetch health data from UniFi Controller."""
+        health_url = f"{self.controller}/api/s/{self.site}/stat/health"
+        
+        try:
+            resp = self.session.get(
+                health_url,
+                verify=self.verify_ssl,
+                timeout=10
+            )
+            
+            if resp.status_code != 200:
+                _LOGGER.warning(f"Error fetching health data: {resp.status_code}")
+                return []
+            
+            return resp.json().get("data", [])
+            
+        except requests.exceptions.RequestException as err:
+            _LOGGER.warning(f"Error fetching health data: {err}")
+            return []
 
     async def async_shutdown(self) -> None:
         """Close the session when shutting down."""

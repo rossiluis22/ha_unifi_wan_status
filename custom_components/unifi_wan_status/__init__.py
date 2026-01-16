@@ -38,6 +38,49 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    # Clean up orphaned entities
+    entity_registry = hass.helpers.entity_registry.async_get(hass)
+    device_registry = hass.helpers.device_registry.async_get(hass)
+    
+    # Get all entities for this config entry
+    entries = node = [
+        entry 
+        for entry in entity_registry.entities.values() 
+        if entry.config_entry_id == entry.entry_id
+    ]
+    
+    # Currently active WAN IDs from coordinator
+    active_wan_ids = coordinator.data.keys()
+    
+    # Identify orphans
+    # Our unique_id format is f"{DOMAIN}_{wan_id}" -> "unifi_wan_status_{mac}_{interface}"
+    
+    # Iterate over a copy of registered entities
+    entries = hass.helpers.entity_registry.async_entries_for_config_entry(
+        entity_registry, entry.entry_id
+    )
+    
+    for entity_entry in entries:
+        # Check if this entity's unique identifier matches an active WAN
+        # The unique_id is stored in entity_entry.unique_id
+        # We need to strip the prefix strictly to match wan_id
+        
+        # Example unique_id: unifi_wan_status_28:70:4e:73:d3:66_wan1
+        # The DOMAIN is "unifi_wan_status", so we check if it starts with it
+        
+        # Simpler approach: check if the unique_id corresponds to any active wan_id
+        # We construct expected unique_ids for active wans
+        is_active = False
+        for wan_id in active_wan_ids:
+            expected_unique_id = f"{DOMAIN}_{wan_id}"
+            if entity_entry.unique_id == expected_unique_id:
+                is_active = True
+                break
+        
+        if not is_active:
+            _LOGGER.info("Removing orphaned entity: %s", entity_entry.entity_id)
+            entity_registry.async_remove(entity_entry.entity_id)
+
     return True
 
 
