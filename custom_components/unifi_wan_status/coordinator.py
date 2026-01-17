@@ -112,7 +112,7 @@ class UniFiWANCoordinator(DataUpdateCoordinator):
             devices = resp.json().get("data", [])
             
             # Fetch health data for ISP info
-            health_data = await self.hass.async_add_executor_job(self._fetch_health)
+            health_data = self._fetch_health()
             
             # Extract ISP info from health data
             health_isp_name = "N/A"
