@@ -8,6 +8,9 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
+
+from homeassistant.helpers import device_registry as dr, entity_registry as er
+
 from .const import CONF_CONTROLLER, CONF_SITE, CONF_VERIFY_SSL, DOMAIN
 from .coordinator import UniFiWANCoordinator
 
@@ -39,15 +42,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Clean up orphaned entities
-    entity_registry = hass.helpers.entity_registry.async_get(hass)
-    device_registry = hass.helpers.device_registry.async_get(hass)
-    
-    # Get all entities for this config entry
-    entries = node = [
-        entry 
-        for entry in entity_registry.entities.values() 
-        if entry.config_entry_id == entry.entry_id
-    ]
+    entity_registry = er.async_get(hass)
+    device_registry = dr.async_get(hass)
     
     # Currently active WAN IDs from coordinator
     active_wan_ids = coordinator.data.keys()
@@ -56,7 +52,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Our unique_id format is f"{DOMAIN}_{wan_id}" -> "unifi_wan_status_{mac}_{interface}"
     
     # Iterate over a copy of registered entities
-    entries = hass.helpers.entity_registry.async_entries_for_config_entry(
+    entries = er.async_entries_for_config_entry(
         entity_registry, entry.entry_id
     )
     
